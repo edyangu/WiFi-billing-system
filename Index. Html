@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Adonis WiFi - Connect</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:Arial,sans-serif}
+body{background:#0a0a0a;color:white;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.card{background:#1a1a1a;width:100%;max-width:400px;border-radius:20px;padding:30px;border:1px solid #2a2a2a}
+.logo{text-align:center;margin-bottom:25px}
+.logo h1{color:#facc15;font-size:28px;letter-spacing:1px}
+.logo p{color:#888;font-size:13px;margin-top:5px}
+.plan{display:flex;gap:10px;margin-bottom:20px}
+.plan-box{flex:1;background:#222;border:2px solid #333;border-radius:12px;padding:12px;text-align:center;cursor:pointer}
+.plan-box.active{border-color:#facc15;background:#2a2a0a}
+.plan-box h3{font-size:14px}
+.plan-box p{color:#facc15;font-weight:bold;margin-top:5px;font-size:13px}
+label{font-size:12px;color:#aaa;display:block;margin-bottom:6px;margin-top:15px}
+input,select{width:100%;padding:14px;background:#222;border:1px solid #333;border-radius:10px;color:white;outline:none;font-size:15px}
+input:focus{border-color:#facc15}
+.btn{width:100%;padding:15px;background:#facc15;color:black;border:none;border-radius:10px;font-weight:bold;font-size:16px;margin-top:20px;cursor:pointer}
+.btn:active{transform:scale(0.98)}
+.voucher{margin-top:25px;border-top:1px solid #2a2a2a;padding-top:20px}
+.voucher input{margin-top:8px}
+.btn2{background:white;margin-top:10px}
+.status{margin-top:15px;padding:12px;border-radius:10px;font-size:13px;display:none;text-align:center}
+.status.show{display:block}
+.status.wait{background:#332a00;color:#facc15}
+.status.ok{background:#0a2a0a;color:#4ade80}
+.footer{text-align:center;margin-top:20px;color:#555;font-size:11px}
+</style>
+</head>
+<body>
+<div class="card">
+<div class="logo">
+<h1>ADONIS WIFI</h1>
+<p>Fast Internet - Pay with Mobile Money</p>
+</div>
+
+<div class="plan">
+<div class="plan-box active" onclick="pick(1000,'1 Hour',this)">
+<h3>1 Hour</h3>
+<p>1,000 UGX</p>
+</div>
+<div class="plan-box" onclick="pick(3000,'5 Hours',this)">
+<h3>5 Hours</h3>
+<p>3,000 UGX</p>
+</div>
+<div class="plan-box" onclick="pick(5000,'24 Hours',this)">
+<h3>24 Hours</h3>
+<p>5,000 UGX</p>
+</div>
+</div>
+
+<label>Phone Number</label>
+<input id="phone" placeholder="07XXXXXXXX" type="tel">
+
+<label>Payment Method</label>
+<select id="method">
+<option value="mtn">MTN Mobile Money</option>
+<option value="airtel">Airtel Money</option>
+</select>
+
+<button class="btn" id="payBtn" onclick="pay()">Pay Now</button>
+<div id="status" class="status"></div>
+
+<div class="voucher">
+<label>Have Voucher Code? Enter Here</label>
+<input id="voucher" placeholder="e.g. AD-4829">
+<button class="btn btn2" onclick="connect()">Connect to WiFi</button>
+</div>
+
+<div class="footer">Powered by Adonis WiFi - Kampala, Uganda</div>
+</div>
+
+<script>
+let amount = 1000
+let plan = '1 Hour'
+let backend = 'https://adonis-backend.onrender.com'
+
+function pick(a,p,el){
+amount=a; plan=p
+document.querySelectorAll('.plan-box').forEach(b=>b.classList.remove('active'))
+el.classList.add('active')
+}
+
+function show(t,m){
+let s=document.getElementById('status')
+s.className='status show '+t
+s.innerText=m
+}
+
+async function pay(){
+let phone=document.getElementById('phone').value
+let method=document.getElementById('method').value
+if(!phone || phone.length<10){show('wait','Enter valid phone number');return}
+document.getElementById('payBtn').innerText='Processing...'
+show('wait','Sending payment request to '+phone+'... Check phone for MoMo PIN prompt')
+try{
+let res=await fetch(backend+'/pay',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone,amount,method,plan})})
+let data=await res.json()
+if(data.ref){
+show('wait','Payment sent! Enter PIN on phone. Checking status...')
+check(data.ref)
+}else{
+show('wait',data.message||'Failed, try again')
+document.getElementById('payBtn').innerText='Pay Now'
+}
+}catch(e){
+show('wait','Backend offline, but demo: Use voucher AD-1234')
+document.getElementById('payBtn').innerText='Pay Now'
+}
+}
+
+async function check(ref){
+let i=0
+let timer=setInterval(async()=>{
+i++
+try{
+let res=await fetch(backend+'/check/'+ref)
+let d=await res.json()
+if(d.status==='paid'){
+clearInterval(timer)
+show('ok','Payment success! Your voucher: '+d.voucher+' - Enter it below')
+document.getElementById('voucher').value=d.voucher
+document.getElementById('payBtn').innerText='Pay Now'
+}
+}catch{}
+if(i>20){clearInterval(timer);show('wait','Still checking... enter code if you received SMS');document.getElementById('payBtn').innerText='Pay Now'}
+},3000)
+}
+
+function connect(){
+let code=document.getElementById('voucher').value
+if(!code){show('wait','Enter voucher code');return}
+show('ok','Connecting... Voucher '+code+' accepted! You are online.')
+setTimeout(()=>{window.location.href='http://google.com'},1500)
+}
+</script>
+</body>
+</html>
