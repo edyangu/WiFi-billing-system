@@ -1,55 +1,46 @@
+
 const express = require('express');
+const path = require('path');
 const cors = require('cors');
 const app = express();
+const PORT = process.env.PORT || 10000;
+
 app.use(cors());
 app.use(express.json());
+app.use(express.static(__dirname));
 
-let payments = {};
-let vouchers = {};
-
-app.get('/', (req,res)=>{
-  res.send('Adonis WiFi Backend is Running');
+// Main WiFi page
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-app.post('/pay', (req,res)=>{
-  const { phone, amount, method, plan } = req.body;
-  const ref = 'AD-' + Date.now();
-  const voucher = 'AD-' + Math.floor(1000 + Math.random()*9000);
-
-  payments[ref] = { phone, amount, method, plan, status: 'pending', voucher };
-
-  // In real app, call MTN/Airtel API here
-
-  setTimeout(()=>{
-    payments[ref].status = 'paid';
-    vouchers[voucher] = { phone, plan, amount, active: true };
-  }, 8000);
-
-  res.json({ ref, message: 'Payment request sent' });
+// Admin page
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'admin.html'));
 });
 
-app.get('/check/:ref', (req,res)=>{
-  const p = payments[req.params.ref];
-  if(!p) return res.json({ status: 'not found' });
-  if(p.status === 'paid'){
-    return res.json({ status: 'paid', voucher: p.voucher });
-  }
-  res.json({ status: 'pending' });
+app.get('/admin.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'admin.html'));
 });
 
-app.post('/validate', (req,res)=>{
-  const { code } = req.body;
-  if(vouchers[code] && vouchers[code].active){
-    return res.json({ valid: true, plan: vouchers[code].plan });
-  }
-  res.json({ valid: false });
+// API test
+app.get('/api', (req, res) => {
+  res.json({ status: 'Adonis WiFi Backend is Live!' });
 });
 
-app.get('/admin/stats', (req,res)=>{
-  let total = Object.keys(payments).length;
-  let paid = Object.values(payments).filter(x=>x.status==='paid').length;
-  res.json({ total, paid, vouchers: Object.keys(vouchers).length, payments });
+// Create voucher
+app.post('/api/create-voucher', (req, res) => {
+  const { phone, package, amount } = req.body;
+  const voucher = Math.random().toString(36).substring(2, 8).toUpperCase();
+  console.log(`New Payment: ${phone} - ${package} - ${amount} - Voucher: ${voucher}`);
+  res.json({ success: true, voucher: voucher, message: 'Payment received' });
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, ()=> console.log('Server on '+PORT));
+// For any other route, show index.html
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
