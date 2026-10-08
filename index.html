@@ -77,6 +77,7 @@ input:focus{border-color:#facc15}
 <script>
 let amount = 1000
 let plan = '1 Hour'
+// CHANGE THIS to your real deployed backend URL if different
 let backend = 'https://wifi-billing-system-1-mcg0.onrender.com'
 
 function pick(a,p,el){
@@ -98,8 +99,13 @@ if(!phone || phone.length<10){show('wait','Enter valid phone number');return}
 document.getElementById('payBtn').innerText='Processing...'
 show('wait','Sending payment request to '+phone+'... Check phone for MoMo PIN prompt')
 try{
-let res=await fetch(backend+'/pay',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone,amount,method,plan})})
+let res=await fetch(backend+'/pay',{
+method:'POST',
+headers:{'Content-Type':'application/json'},
+body:JSON.stringify({phone,amount,method,plan})
+})
 let data=await res.json()
+console.log('PAY RESPONSE:',data)
 if(data.ref){
 show('wait','Payment sent! Enter PIN on phone. Checking status...')
 check(data.ref)
@@ -108,7 +114,8 @@ show('wait',data.message||'Failed, try again')
 document.getElementById('payBtn').innerText='Pay Now'
 }
 }catch(e){
-show('wait','Backend offline, but demo: Use voucher AD-1234')
+console.error('PAY ERROR:',e)
+show('wait','Network error: '+e.message)
 document.getElementById('payBtn').innerText='Pay Now'
 }
 }
@@ -120,14 +127,21 @@ i++
 try{
 let res=await fetch(backend+'/check/'+ref)
 let d=await res.json()
-if(d.status==='paid'){
+console.log('CHECK RESPONSE:',d)
+if(d.status==='paid' && d.voucher){
 clearInterval(timer)
 show('ok','Payment success! Your voucher: '+d.voucher+' - Enter it below')
 document.getElementById('voucher').value=d.voucher
 document.getElementById('payBtn').innerText='Pay Now'
 }
-}catch{}
-if(i>20){clearInterval(timer);show('wait','Still checking... enter code if you received SMS');document.getElementById('payBtn').innerText='Pay Now'}
+}catch(e){
+console.error('CHECK ERROR:',e)
+}
+if(i>20){
+clearInterval(timer)
+show('wait','Still checking... enter code if you received SMS')
+document.getElementById('payBtn').innerText='Pay Now'
+}
 },3000)
 }
 
