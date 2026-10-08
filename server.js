@@ -9,8 +9,12 @@ app.use(express.json());
 app.use(express.static(__dirname));
 
 // In-memory store for payments
-// ref -> { phone, amount, plan, method, status, voucher }
+// ref -> { ref, phone, amount, method, plan, voucher, status, createdAt }
 const payments = {};
+
+// ==========================================
+// PAGES
+// ==========================================
 
 // Main WiFi page
 app.get('/', (req, res) => {
@@ -26,12 +30,27 @@ app.get('/admin.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'admin.html'));
 });
 
+// ==========================================
+// API
+// ==========================================
+
 // API test
 app.get('/api', (req, res) => {
   res.json({ status: 'Adonis WiFi Backend is Live!' });
 });
 
-// Create voucher (kept from your original)
+// Admin stats (used by admin.html)
+app.get('/admin/stats', (req, res) => {
+  const all = Object.values(payments);
+  res.json({
+    total: all.length,
+    paid: all.filter(p => p.status === 'paid').length,
+    vouchers: all.filter(p => p.status === 'paid' && p.voucher).length,
+    payments: payments
+  });
+});
+
+// Create voucher (kept from original)
 app.post('/api/create-voucher', (req, res) => {
   const { phone, package, amount } = req.body;
   const voucher = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -39,7 +58,7 @@ app.post('/api/create-voucher', (req, res) => {
   res.json({ success: true, voucher: voucher, message: 'Payment received' });
 });
 
-// Pay endpoint (frontend calls this)
+// Pay endpoint (used by index.html)
 app.post('/pay', (req, res) => {
   const { phone, amount, method, plan } = req.body;
 
@@ -47,13 +66,9 @@ app.post('/pay', (req, res) => {
     return res.status(400).json({ message: 'Phone and amount required' });
   }
 
-  // Generate a unique reference
   const ref = 'REF' + Date.now() + Math.floor(Math.random() * 1000);
-
-  // Generate a voucher code
   const voucher = 'AD-' + Math.random().toString(36).substring(2, 6).toUpperCase();
 
-  // Store it as "pending" first
   payments[ref] = {
     ref,
     phone,
@@ -67,10 +82,10 @@ app.post('/pay', (req, res) => {
 
   console.log(`PAY: ${ref} | ${phone} | ${plan} | ${amount} | ${method}`);
 
-  // Respond immediately so frontend starts polling /check/:ref
   res.json({ ref, message: 'Payment initiated. Check your phone for PIN prompt.' });
 
-  // SIMULATE payment confirmation after 6 seconds (replace with real MoMo API later)
+  // Simulate payment confirmation after 6 seconds
+  // Replace this with a real MTN/Airtel MoMo callback later
   setTimeout(() => {
     if (payments[ref]) {
       payments[ref].status = 'paid';
@@ -79,7 +94,7 @@ app.post('/pay', (req, res) => {
   }, 6000);
 });
 
-// Check payment status (frontend polls this)
+// Check payment status (used by index.html)
 app.get('/check/:ref', (req, res) => {
   const { ref } = req.params;
   const payment = payments[ref];
@@ -97,10 +112,17 @@ app.get('/check/:ref', (req, res) => {
   }
 });
 
-// Wildcard fallback (MUST be last, and MUST NOT catch /pay or /check)
+// ==========================================
+// FALLBACK (MUST BE LAST)
+// ==========================================
+
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
+
+// ==========================================
+// START SERVER
+// ==========================================
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
